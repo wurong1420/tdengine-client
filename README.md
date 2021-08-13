@@ -1,5 +1,7 @@
 # tdengine-client
-一个简单的TDEngine界面，主要是实现功能，代码不优雅
+一个基于layui开发的简单的TDEngine客户端UI界面，主要是实现功能，代码不优雅
+
+感谢layui，提供了丰富的组件。
 
 下载后可以本地直接双击index.html，也可以部署到nginx，然后共享给团队其他成员。
 进入首页（例如nginx的地址是：http://10.10.10.10:8080）
