@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>TDEngine Client</title>
+<link rel="stylesheet" href="layui/css/layui.css">
+</head>
+<body>
+
+<div class="layui-layout layui-layout-admin">
+  <div class="layui-header">
+    <div class="layui-logo layui-hide-xs layui-bg-black">TDEngine Client</div>
+    <!-- 头部区域（可配合layui 已有的水平导航） -->
+    <ul class="layui-nav layui-layout-left">
+      <!-- 移动端显示 -->
+      <li class="layui-nav-item layui-show-xs-inline-block layui-hide-sm" lay-header-event="menuLeft">
+        <i class="layui-icon layui-icon-spread-left"></i>
+      </li>
+      
+      <li class="layui-nav-item layui-hide-xs"><a href="javascript:void(0);" new-connection-active="new-connection">New Connection</a></li>
+      <li class="layui-nav-item layui-hide-xs" id="connection_information"></li>
+      
+    </ul>
+
+    <ul class="layui-nav layui-layout-right">
+      <li class="layui-nav-item" lay-header-event="menuRight" lay-unselect>
+        <a href="javascript:;" logout-active="logout">
+          <i class="layui-icon layui-icon-logout"></i>
+        </a>
+      </li>
+      <li class="layui-nav-item" lay-header-event="menuRight" lay-unselect>
+        <a href="index.html">
+          <i class="layui-icon">Chinese</i>
+        </a>
+      </li>
+    </ul>
+  </div>
+  
+  <div class="layui-side layui-bg-black">
+    <div class="layui-side-scroll">
+      <!-- 左侧导航区域（可配合layui已有的垂直导航） -->
+      <ul class="layui-nav layui-nav-tree" lay-filter="test" id="datasource-list">
+        
+      </ul>
+    </div>
+  </div>
+  
+  <div class="layui-body">
+    <!-- 内容主体区域 -->
+    <div style="padding: 15px;">
+      
+      <blockquote class="layui-elem-quote layui-text">
+        <textarea placeholder="Please input Sql" class="layui-textarea" id="sql"></textarea>
+        <button class="layui-btn" run-active="clean">Clean</button>
+        <button class="layui-btn" run-active="run">Run</button>
+      </blockquote>
+      <br>
+
+      <blockquote class="layui-elem-quote layui-text">
+        <table class="layui-table" lay-size="lg">
+          <thead id="table-header">
+          </thead>
+          <tbody id="table-body">
+          </tbody>
+        </table>
+      </blockquote>      
+    </div>
+  </div>
+
+  <div class="layui-footer" id="footer">
+  </div>
+</div>
+
+
+<script src="layui/layui.js"></script>
+<script src="layui/clipboard.min.js"></script>
+<script>
+
+//JS 
+layui.use(['element', 'layer', 'util'], function(){
+  var layer = layui.layer
+  ,form = layui.form
+  ,laypage = layui.laypage
+  ,element = layui.element
+  ,laydate = layui.laydate
+  ,util = layui.util
+  ,$ = layui.$;
+
+
+  var connection = localStorage.getItem("connection");
+  if (connection != "") {
+    obj = JSON.parse(connection)
+    layui.$('#connection_information').html(obj.url)
+    layui.$.ajax({
+      url: "http://" + obj.url + "/rest/sql",
+      type: "post",
+      data: "show databases",
+      dataType: "text",
+      headers: {
+        "Authorization": "Basic " + btoa(obj.username + ":" + obj.password)
+      },
+      success: function(data){
+        var obj = JSON.parse(data)
+         if (obj.status == "succ") {
+            var html = '<li class="layui-nav-item"><a class="" href="javascript:;">DataBase List</a></li>';
+            obj.data.forEach((x)=>{
+              //html += '<dd><a href="javascript:void(0);" name="' + x[0] + '">' + x[0] + '</a></dd>';
+              html += '<li class="layui-nav-item" id="'+x[0]+'"><a href="javascript:;" database="show-tables" data-database="'+x[0]+'">'+x[0]+'</a><dl class="layui-nav-child"></dd></dl></li>'
+
+            });
+            layui.$('#datasource-list').html(html);
+         } else {
+            layer.msg("query database list failed", {icon: 2});
+         }
+      },
+      timeout: function(data) {
+        layer.msg("query database list timeout", {icon: 2});
+      },
+      error: function(data) {
+        obj = JSON.parse(data.responseText)
+        layer.msg(obj.desc, {icon: 2}); 
+      }    
+    });
+  }
+
+  //触发事件
+  util.event('new-connection-active', {
+    'new-connection': function(){
+      layer.open({
+        type: 1
+        ,resize: false
+        ,shadeClose: true
+        ,area: '350px'
+        ,title: 'New Connection'
+        ,content: ['<ul class="layui-form layui-form-pane" style="margin: 15px;">'
+          ,'<li class="layui-form-item">'
+            ,'<label class="layui-form-label">URL</label>'
+            ,'<div class="layui-input-block">'
+              ,'<input class="layui-input" lay-verify="required" name="url" placeholder="include port">'
+            ,'</div>'
+          ,'</li>'
+          ,'<li class="layui-form-item">'
+            ,'<label class="layui-form-label">User Name</label>'
+            ,'<div class="layui-input-block">'
+              ,'<input class="layui-input" lay-verify="required" name="username">'
+            ,'</div>'
+          ,'</li>'
+          ,'<li class="layui-form-item">'
+            ,'<label class="layui-form-label">Password</label>'
+            ,'<div class="layui-input-block">'
+              ,'<input class="layui-input" type="password" lay-verify="required" name="password">'
+            ,'</div>'
+          ,'</li>'
+          ,'<li class="layui-form-item" style="text-align:center;">'
+            ,'<button type="submit" lay-submit lay-filter="*" class="layui-btn">Create</button>'
+          ,'</li>'
+        ,'</ul>'].join('')
+        ,success: function(layero, index){
+          layero.find('.layui-layer-content').css('overflow', 'visible');          
+          form.render().on('submit(*)', function(data){
+            // layer.msg(JSON.stringify(data.field), {icon: 1});
+            localStorage.setItem("connection", JSON.stringify(data.field))
+
+            var url = data.field.url;
+            var username = data.field.username;
+            var password = data.field.password;
+
+            //curl -u root:taosdata -d 'select server_status()' 10.10.10.159:6041/rest/sql
+            var sql = "select server_status()";
+
+            layui.$.ajax({
+              url: "http://" + url + "/rest/sql",
+              type: "post",
+              data: sql,
+              dataType: "text",
+              headers: {
+                "Authorization": "Basic " + btoa(username + ":" + password)
+              },
+              success: function(data){
+                var obj = JSON.parse(data)
+                 if (obj.status == "succ") {
+                    layer.msg("Connect success", {icon: 1});
+                    layui.$('#connection_information').html(url)
+
+                    layui.$.ajax({
+                      url: "http://" + url + "/rest/sql",
+                      type: "post",
+                      data: "show databases",
+                      dataType: "text",
+                      headers: {
+                        "Authorization": "Basic " + btoa(username + ":" + password)
+                      },
+                      success: function(data){
+                        var obj = JSON.parse(data)
+                         if (obj.status == "succ") {
+                            var html = '<li class="layui-nav-item"><a class="" href="javascript:;">DataBase list</a></li>';
+                            obj.data.forEach((x)=>{
+                              //html += '<dd><a href="javascript:void(0);">' + x[0] + '</a></dd>';
+                              html += '<li class="layui-nav-item" id="'+x[0]+'"><a href="javascript:;" database="show-tables" data-database="'+x[0]+'">'+x[0]+'</a><dl class="layui-nav-child"></dd></dl></li>'
+                            });
+                            layui.$('#datasource-list').html(html);
+                         } else {
+                            layer.msg("query database list failed", {icon: 2});
+                         }
+                      },
+                      timeout: function(data) {
+                        layer.msg("query database list timeout", {icon: 2});
+                      },
+                      error: function(data) {
+                        obj = JSON.parse(data.responseText)
+                        layer.msg(obj.desc, {icon: 2}); 
+                      }    
+                    });
+
+                 } else {
+                    layer.msg("connect failed", {icon: 2});
+                 }
+              },
+              timeout: function(data) {
+                layer.msg("connect timeout", {icon: 2});
+              },
+              error: function(data) {
+                obj = JSON.parse(data.responseText)
+                layer.msg(obj.desc, {icon: 2}); 
+              }    
+            });
+
+
+            layer.close(index); //关闭层
+          });
+        }
+      });
+    }
+  });
+
+  //执行sql
+  util.event('run-active', {
+    'run': function(){
+
+      var connection = localStorage.getItem("connection")
+      if (connection == null || connection == "") {
+        layer.msg("please connect TDEngine server first...", {icon: 2});
+        return
+      }
+
+      var sql = layui.$('#sql').val()
+
+      if (sql == null || sql == "") {
+        layer.msg("please input SQL", {icon: 2});
+        return
+      }
+
+      layui.$('#table-header').html('');
+      layui.$('#table-body').html('');
+      layui.$('#footer').html('');
+
+
+      obj = JSON.parse(connection)
+
+      layui.$.ajax({
+        url: "http://" + obj.url + "/rest/sql",
+        type: "post",
+        data: sql,
+        dataType: "text",
+        headers: {
+          "Authorization": "Basic " + btoa(obj.username + ":" + obj.password)
+        },
+        success: function(data){
+          obj = JSON.parse(data)
+          if (obj.status == "succ") {
+            var size = 0;
+            var header = '<tr>';
+            header += '<th data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3"><span><strong>Seq</strong></span></div></th>';
+            obj.head.forEach((x)=>{
+              header += '<th data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3"><span><strong>' + x + '</strong></span></div></th>';
+              size++;
+            });
+            header += '</tr>'
+            layui.$('#table-header').html(header);
+
+            var body = '';
+            var index = 1
+            obj.data.forEach((x)=>{
+              body += '<tr>';
+              body += '<td data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3">' + index + '</div></td>';  
+              for (var i=0;i< size;i++) {
+                body += '<td data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3">' + x[i] + '</div></td>';  
+              }
+              body += '</tr>';
+              index++
+            });
+            layui.$('#table-body').html(body);
+            layui.$('#footer').html('response ' + obj.rows + ' rows');
+          } else {
+            layer.msg(obj.desc, {icon: 2});
+          }
+        },
+        error: function(data) {
+          obj = JSON.parse(data.responseText)
+          layer.msg(obj.desc, {icon: 2}); 
+        }              
+      });
+    },
+    'clean': function(){
+      layui.$('#sql').val('');
+    }
+  });
+
+  util.event('database', {
+    'show-tables': function(item){
+      databaseName = item.context.dataset.database;
+      if(layui.$('#'+databaseName).hasClass('layui-nav-itemed')) {
+        layui.$('#'+databaseName).removeClass('layui-nav-itemed');
+      } else {
+        var connection = localStorage.getItem("connection");
+        if (connection == null || connection == "") {
+          layer.msg("please connect TDEngine server first...", {icon: 2});
+          return
+        }
+
+        obj = JSON.parse(connection);
+
+        var url = obj.url;
+        var username = obj.username;
+        var password = obj.password;
+
+        layui.$.ajax({
+          url: "http://" + url + "/rest/sql",
+          type: "post",
+          data: 'use ' + databaseName + ';',
+          dataType: "text",
+          headers: {
+            "Authorization": "Basic " + btoa(username + ":" + password)
+          },
+          success: function(data){
+            obj = JSON.parse(data)
+            if (obj.status == "succ") {
+
+              layui.$.ajax({
+                url: "http://" + url + "/rest/sql",
+                type: "post",
+                data: 'show tables;',
+                dataType: "text",
+                headers: {
+                  "Authorization": "Basic " + btoa(username + ":" + password)
+                },
+                success: function(data){
+                  obj = JSON.parse(data)
+                  if (obj.status == "succ") {
+                    layui.$('#'+databaseName).addClass('layui-nav-itemed');
+                    var html = '';
+                    obj.data.forEach((x)=>{
+                      html += '<dd><a class="tableName" id="'+databaseName + '.' + x[0]+'" href="javascript:;" data-database="'+x[0]+'" copy-active="copy" title="点击可以拷贝表名">'+x[0]+'</a></dd>';
+                    });
+                    layui.$('#'+databaseName + ' .layui-nav-child').html(html);
+                  } else {
+                    layer.msg(obj.desc, {icon: 2});
+                  }
+                },
+                error: function(data) {
+                  obj = JSON.parse(data.responseText)
+                  layer.msg(obj.desc, {icon: 2}); 
+                }              
+              });
+            } else {
+              layer.msg(obj.desc, {icon: 2});
+            }
+          },
+          error: function(data) {
+            obj = JSON.parse(data.responseText)
+            layer.msg(obj.desc, {icon: 2}); 
+          }              
+        });
+      }
+    }
+  });
+
+  util.event('copy-active', {
+    'copy': function(item) {
+      var clipboard = new ClipboardJS('.tableName', {
+        text: function(trigger) {
+          return trigger.getAttribute('id');
+        }
+      });
+
+      clipboard.on('success', function (e) {
+        layer.msg("copied table name", {icon: 1});
+        layui.$('#sql').val('select * from ' + e.text + ' limit 100');
+      });
+    }
+  });
+  
+  util.event('logout-active', {
+    'logout': function(item) {
+      layer.confirm('are you close the connection of TDEngine?', {
+          btn : [ 'Yes', 'No' ]
+      }, function() {
+        localStorage.setItem('connection', '');
+        layui.$('#connection_information').html('');
+        var html = '<li class="layui-nav-item"><a class="" href="javascript:;">数据库列表</a></li>';
+        layui.$('#datasource-list').html(html);
+        layer.closeAll('dialog');
+      });
+    }
+  })
+
+  util.fixbar({  //返回顶部
+      top: true
+      ,css: {right: 15, bottom: 35}
+      ,bgcolor: '#393D49'
+      ,click: function(type){
+      }
+    });
+});
+</script>
+</body>
+</html>
