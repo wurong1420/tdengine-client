@@ -89,7 +89,7 @@ layui.use(['element', 'layer', 'util'], function(){
 
 
   var connection = localStorage.getItem("connection");
-  if (connection != "") {
+  if (connection != null && connection != "") {
     obj = JSON.parse(connection)
     layui.$('#connection_information').html(obj.url)
     layui.$.ajax({
