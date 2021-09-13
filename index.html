@@ -58,12 +58,21 @@
       <br>
 
       <blockquote class="layui-elem-quote layui-text">
-        <table class="layui-table" lay-size="lg">
-          <thead id="table-header">
-          </thead>
-          <tbody id="table-body">
-          </tbody>
-        </table>
+        <div id="result_show_tabs" class="layui-tab" lay-filter="result-tabs">
+          <ul class="layui-tab-title">
+            <li class="layui-this" lay-id="result_0">结果1</li>
+          </ul>
+          <div class="layui-tab-content">
+            <div id="result_content_0" class="layui-tab-item layui-show">...</div>
+          </div>
+        </div>
+
+<!--                <table class="layui-table" lay-size="lg">-->
+<!--          <thead id="table-header">-->
+<!--          </thead>-->
+<!--          <tbody id="table-body">-->
+<!--          </tbody>-->
+<!--        </table>-->
       </blockquote>      
     </div>
   </div>
@@ -87,6 +96,16 @@ layui.use(['element', 'layer', 'util'], function(){
   ,util = layui.util
   ,$ = layui.$;
 
+  var active = {
+    tabAdd: function(index, content){
+      //新增一个Tab项
+      element.tabAdd('result-tabs', {
+        title: '结果'+ index
+        ,content: content
+        ,id: new Date().getTime()
+      })
+    }
+  };
 
   var connection = localStorage.getItem("connection");
   if (connection != null && connection != "") {
@@ -244,63 +263,95 @@ layui.use(['element', 'layer', 'util'], function(){
         return
       }
 
-      var sql = layui.$('#sql').val()
+      var sqlValue = layui.$('#sql').val()
 
-      if (sql == null || sql == "") {
+      if (sqlValue == null || sqlValue == "") {
         layer.msg("请输入要执行的SQL语句", {icon: 2});
         return
       }
 
-      layui.$('#table-header').html('');
-      layui.$('#table-body').html('');
-      layui.$('#footer').html('');
-
+      layui.$('#result_show_tabs').html('<ul class="layui-tab-title">\n' +
+              '              <li class="layui-this" lay-id="result_0">结果1</li>\n' +
+              '    </ul>\n' +
+              '    <div class="layui-tab-content">\n' +
+              '    <div id="result_content_0" class="layui-tab-item layui-show">...</div>\n' +
+              '    </div>');
 
       obj = JSON.parse(connection)
+      url = obj.url
+      username = obj.username
+      password = obj.password
 
-      layui.$.ajax({
-        url: "http://" + obj.url + "/rest/sql",
-        type: "post",
-        data: sql,
-        dataType: "text",
-        headers: {
-          "Authorization": "Basic " + btoa(obj.username + ":" + obj.password)
-        },
-        success: function(data){
-          obj = JSON.parse(data)
-          if (obj.status == "succ") {
-            var size = 0;
-            var header = '<tr>';
-            header += '<th data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3"><span><strong>序号</strong></span></div></th>'; 
-            obj.head.forEach((x)=>{
-              header += '<th data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3"><span><strong>' + x + '</strong></span></div></th>';
-              size++;
-            });
-            header += '</tr>'
-            layui.$('#table-header').html(header);
+      var sqls = sqlValue.split(";")
+      for (let i = 0; i < sqls.length; i++) {
+        var sql = sqls[i];
+        if (sql.length == 0) {
+          continue;
+        }
 
-            var body = '';
-            var index = 1
-            obj.data.forEach((x)=>{
-              body += '<tr>';
-              body += '<td data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3">' + index + '</div></td>';  
-              for (var i=0;i< size;i++) {
-                body += '<td data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3">' + x[i] + '</div></td>';  
+        layui.$.ajax({
+          url: "http://" + url + "/rest/sql",
+          type: "post",
+          data: sql,
+          dataType: "text",
+          async: false,
+          headers: {
+            "Authorization": "Basic " + btoa(username + ":" + password)
+          },
+          success: function(data){
+            obj = JSON.parse(data)
+            if (obj.status == "succ") {
+
+              var size = 0;
+              var header = '<tr>';
+              header += '<th data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3"><span><strong>序号</strong></span></div></th>';
+              obj.head.forEach((x)=>{
+                header += '<th data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3"><span><strong>' + x + '</strong></span></div></th>';
+                size++;
+              });
+              header += '</tr>'
+
+              var body = '';
+              var index = 1
+              obj.data.forEach((x)=>{
+                body += '<tr>';
+                body += '<td data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3">' + index + '</div></td>';
+                for (var i=0;i< size;i++) {
+                  body += '<td data-field="username" data-key="6-0-3" class=""><div class="layui-table-cell laytable-cell-6-0-3">' + x[i] + '</div></td>';
+                }
+                body += '</tr>';
+                index++
+              });
+
+              var content = '<table class="layui-table" lay-size="lg">\n' +
+                      '          <thead id="table-header_' + i + '">\n' +
+                      header +
+                      '          </thead>\n' +
+                      '          <tbody id="table-body_' + i + '">\n' +
+                      body +
+                      '          </tbody>\n' +
+                      '        </table>'
+
+
+              //创建一个新的tab，把结果放进去
+              if(i==0) {
+                layui.$('#result_content_0').html(content)
+              } else {
+                active.tabAdd(i+1, content)
               }
-              body += '</tr>';
-              index++
-            });
-            layui.$('#table-body').html(body);
-            layui.$('#footer').html('共查询到' + obj.rows + '条数据');
-          } else {
+
+              layui.$('#footer').html('共查询到' + obj.rows + '条数据');
+            } else {
+              layer.msg(obj.desc, {icon: 2});
+            }
+          },
+          error: function(data) {
+            obj = JSON.parse(data.responseText)
             layer.msg(obj.desc, {icon: 2});
           }
-        },
-        error: function(data) {
-          obj = JSON.parse(data.responseText)
-          layer.msg(obj.desc, {icon: 2}); 
-        }              
-      });
+        });
+
+      }
     },
     'clean': function(){
       layui.$('#sql').val('');
